@@ -1,5 +1,6 @@
 package com.asyncprocessing.platform.task.service;
 
+import com.asyncprocessing.platform.exception.TaskNotFoundException;
 import com.asyncprocessing.platform.task.entity.ProcessingTask;
 import com.asyncprocessing.platform.task.enums.TaskStatus;
 import com.asyncprocessing.platform.task.event.TaskUpdatedEvent;
@@ -8,8 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.http.HttpStatus;
 
 @Service
 @RequiredArgsConstructor
@@ -65,9 +64,6 @@ public class TaskProcessingService {
 
     private ProcessingTask findTask(Long taskId) {
         return taskRepository.findById(taskId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "No se encontró la tarea con ID: " + taskId
-                ));
+                .orElseThrow(() -> new TaskNotFoundException(taskId ));
     }
 }

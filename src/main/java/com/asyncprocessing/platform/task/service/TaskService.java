@@ -1,6 +1,7 @@
 
 package com.asyncprocessing.platform.task.service;
 
+import com.asyncprocessing.platform.exception.TaskNotFoundException;
 import com.asyncprocessing.platform.task.dto.CreateTaskRequest;
 import com.asyncprocessing.platform.task.dto.TaskPageResponse;
 import com.asyncprocessing.platform.task.dto.TaskResponse;
@@ -42,7 +43,6 @@ public class TaskService {
     }
 
     // consultar y listar tareas
-
     @Transactional(readOnly = true)
     public TaskResponse getTaskById(Long id) {
 
@@ -53,10 +53,7 @@ public class TaskService {
         }
 
         ProcessingTask task = taskRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "No se encontró la tarea con ID: " + id
-                ));
+                .orElseThrow(() -> new TaskNotFoundException(id));
 
         TaskResponse response = TaskResponse.from(task);
 

@@ -20,6 +20,9 @@ spring:
     username: ${RABBITMQ_USER:async_user}
     password: ${RABBITMQ_PASSWORD:admin}
 
+    ssl:
+      enabled: ${RABBITMQ_SSL_ENABLED:false}
+
     listener:
       simple:
         retry:
@@ -31,6 +34,7 @@ spring:
 
   data:
     redis:
+      url: ${REDIS_URL:redis://localhost:6379}
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
 

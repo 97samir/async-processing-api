@@ -1,75 +1,94 @@
 # Async Processing API
 
-API REST desarrollada con Java y Spring Boot para crear y procesar tareas de forma asíncrona. Utiliza RabbitMQ para gestionar los mensajes, PostgreSQL para almacenar las tareas y Redis para acelerar las consultas mediante caché.
+API REST desarrollada con Java y Spring Boot para crear, procesar y consultar tareas de forma asíncrona.
+
+El proyecto utiliza PostgreSQL para persistir las tareas, RabbitMQ para gestionar el procesamiento en segundo plano y Redis para acelerar las consultas mediante caché.
 
 ## Características
 
 - Crear tareas mediante una API REST.
 - Procesar tareas de forma asíncrona utilizando RabbitMQ.
 - Consultar el estado y el resultado de cada tarea.
-- Gestionar estados: `PENDING`, `PROCESSING`, `COMPLETED` y `FAILED`.
-- Reintentar automáticamente los mensajes fallidos.
-- Enviar los mensajes que agotan los reintentos a una Dead Letter Queue (DLQ).
-- Guardar las tareas y sus resultados en PostgreSQL.
-- Utilizar Redis para almacenar temporalmente las consultas frecuentes.
+- Gestionar los estados `PENDING`, `PROCESSING`, `COMPLETED` y `FAILED`.
+- Reintentar automáticamente el procesamiento de mensajes fallidos.
+- Enviar mensajes que agotan los reintentos a una Dead Letter Queue (DLQ).
+- Persistir las tareas y sus resultados en PostgreSQL.
+- Almacenar temporalmente consultas frecuentes en Redis.
 - Invalidar la caché cuando cambia el estado de una tarea.
-- Validar las solicitudes y manejar errores de procesamiento.
+- Validar las solicitudes y centralizar el manejo de errores HTTP.
+- Documentar los endpoints mediante Swagger UI y OpenAPI.
 - Contar con pruebas unitarias, pruebas de controlador y pruebas de integración.
 
-## Tecnologías
+## Tecnologías utilizadas
 
-- Java 21
-- Spring Boot
-- Spring Web
-- Spring Data JPA
-- Spring AMQP
-- PostgreSQL
-- RabbitMQ
-- Redis
-- Maven
-- Docker Compose
-- JUnit 5, Mockito y Awaitility
+| Tecnología | Uso |
+|---|---|
+| Java 21 | Lenguaje de programación |
+| Spring Boot | Desarrollo de la aplicación |
+| Spring Web | API REST |
+| Spring Data JPA | Persistencia y acceso a datos |
+| Spring AMQP | Integración con RabbitMQ |
+| PostgreSQL | Base de datos relacional |
+| RabbitMQ | Mensajería y procesamiento asíncrono |
+| Redis | Caché de consultas |
+| Maven Wrapper | Compilación y gestión de dependencias |
+| Docker Compose | Ejecución de los servicios externos |
+| SpringDoc OpenAPI | Documentación interactiva de la API |
+| JUnit 5 y Mockito | Pruebas automatizadas |
+| Awaitility | Espera y comprobación de procesos asíncronos |
 
 ## Arquitectura
 
 ```text
-Cliente HTTP
-    |
-    v
-API REST (Spring Boot)
-    |
-    v
-PostgreSQL <--- Registro de la tarea
-    |
-    v
-RabbitMQ <--- Mensaje con el ID de la tarea
-    |
-    v
-Consumidor asíncrono
-    |
-    v
-Procesamiento del reporte
-    |
-    v
-PostgreSQL <--- Estado y resultado final
+                    Cliente HTTP
+                         |
+                         v
+                 API REST (Spring Boot)
+                         |
+              +----------+----------+
+              |                     |
+              v                     v
+        PostgreSQL                Redis
+       Datos persistentes       Caché temporal
+              |
+              v
+       Evento de creación
+              |
+              v
+           RabbitMQ
+              |
+              v
+     Consumidor asíncrono
+              |
+              v
+    Generación del resumen
+              |
+              v
+     Actualización de tarea
+              |
+              v
+          PostgreSQL
 
-Redis <--- Caché de consultas de tareas
-
-RabbitMQ ---> Reintentos ---> Dead Letter Queue
-                                |
-                                v
-                       Registro del fallo
+       RabbitMQ / Reintentos
+              |
+              v
+       Dead Letter Queue
+              |
+              v
+       Registro del fallo
 ```
+
+La API responde al cliente sin esperar a que termine el procesamiento. El consumidor trabaja en segundo plano y actualiza el estado de la tarea para que pueda consultarse posteriormente.
 
 ## Requisitos previos
 
-Antes de ejecutar el proyecto, instala:
+Antes de ejecutar el proyecto, necesitas:
 
 - JDK 21.
 - Docker Desktop con Docker Compose.
 - Git, si deseas clonar el repositorio.
 
-El proyecto incluye Maven Wrapper, por lo que no necesitas instalar Maven por separado.
+No necesitas instalar Maven por separado porque el proyecto incluye Maven Wrapper.
 
 ## Instalación y ejecución
 
@@ -80,64 +99,81 @@ git clone <URL_DEL_REPOSITORIO>
 cd async-processing-api
 ```
 
-### 2. Iniciar los servicios
+Reemplaza `<URL_DEL_REPOSITORIO>` por la dirección real del repositorio.
 
-Desde la raíz del proyecto, inicia PostgreSQL, RabbitMQ y Redis mediante Docker Compose:
+### 2. Configurar las variables de entorno
 
-```bash
+Revisa los archivos `application.yaml`, `application-docker.yml` y `docker-compose.yml` para identificar las variables utilizadas por tu configuración.
+
+Si el repositorio incluye `.env.example`, puedes crear tu archivo local `.env` a partir de esa plantilla y completar los valores necesarios.
+
+En PowerShell:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Ejecuta este comando solo si `.env.example` existe en la raíz del proyecto.
+
+No publiques tu archivo `.env` ni contraseñas reales en GitHub. Utiliza credenciales de desarrollo y verifica que `.env` esté incluido en `.gitignore`.
+
+### 3. Iniciar los servicios
+
+Desde la raíz del proyecto:
+
+```powershell
 docker compose up -d
 ```
 
-Verifica que los contenedores estén funcionando:
+Comprueba el estado de los contenedores:
 
-```bash
+```powershell
 docker compose ps
 ```
 
-### 3. Configurar las variables de entorno
-
-La aplicación permite configurar los servicios mediante estas variables:
-
-| Variable | Valor predeterminado |
-|---|---|
-| `APP_NAME` | `async-processing-api` |
-| `PORT` | `8081` |
-| `DB_HOST` | `localhost` |
-| `DB_PORT` | `5432` |
-| `DB_NAME` | `async_processing` |
-| `DB_USER` | `postgres` |
-| `DB_PASSWORD` | `admin` |
-| `DB_SSL_MODE` | `disable` |
-| `RABBITMQ_HOST` | `localhost` |
-| `RABBITMQ_PORT` | `5672` |
-| `RABBITMQ_USER` | `async_user` |
-| `RABBITMQ_PASSWORD` | `admin` |
-| `REDIS_HOST` | `localhost` |
-| `REDIS_PORT` | `6379` |
-
-Estos son los valores predeterminados de la aplicación. Comprueba que coincidan con la configuración de tu archivo Docker Compose.
-
-**Importante:** las credenciales anteriores son únicamente valores locales de desarrollo. No publiques contraseñas reales ni credenciales de producción en el repositorio.
+Los servicios utilizados por la aplicación son PostgreSQL, RabbitMQ y Redis. Sus puertos y credenciales deben coincidir con la configuración efectiva del proyecto.
 
 ### 4. Ejecutar la aplicación
 
-En Windows:
+En Windows, desde la raíz del proyecto:
 
 ```powershell
 .\mvnw.cmd spring-boot:run
 ```
 
-La API estará disponible en:
+La API utiliza el puerto `8081` en la configuración de desarrollo actual.
 
-`http://localhost:8081`
+Si utilizas IntelliJ IDEA, también puedes ejecutar la clase principal `AsyncProcessingApiApplication`.
+
+## Documentación de la API
+
+Con la aplicación iniciada, abre Swagger UI:
+
+**[Swagger UI](http://localhost:8081/swagger-ui/index.html)**
+
+También puedes consultar la especificación OpenAPI en:
+
+[OpenAPI JSON](http://localhost:8081/v3/api-docs)
+
+Swagger permite revisar los endpoints, sus parámetros, los esquemas de solicitud y respuesta y las respuestas HTTP documentadas, además de ejecutar solicitudes de prueba.
 
 ## Endpoints
 
+La API dispone de los siguientes endpoints principales:
+
+| Método | Endpoint | Descripción |
+|---|---|---|
+| `POST` | `/api/v1/tasks` | Crea una tarea de resumen |
+| `GET` | `/api/v1/tasks/{id}` | Consulta una tarea por su identificador |
+| `GET` | `/api/v1/tasks?page=0&size=10` | Lista tareas mediante paginación |
+
 ### Crear una tarea
 
-`POST /api/v1/tasks`
+**`POST /api/v1/tasks`**
 
-Solicitud:
+Crea una tarea de tipo `REPORT_SUMMARY` y devuelve `201 Created` cuando la solicitud se acepta correctamente.
+
+Ejemplo de solicitud:
 
 ```json
 {
@@ -145,7 +181,7 @@ Solicitud:
 }
 ```
 
-La respuesta esperada es `201 Created`, junto con la ubicación del recurso creado.
+La descripción es obligatoria y admite un máximo de 200 caracteres.
 
 Ejemplo de respuesta:
 
@@ -162,11 +198,11 @@ Ejemplo de respuesta:
 }
 ```
 
-Los valores de fecha e identificador son ilustrativos. El estado puede cambiar rápidamente porque el procesamiento es asíncrono.
+Los identificadores y las fechas son ilustrativos. Debido al procesamiento asíncrono, el estado puede cambiar poco después de crear la tarea.
 
 ### Consultar una tarea
 
-`GET /api/v1/tasks/{id}`
+**`GET /api/v1/tasks/{id}`**
 
 Ejemplo:
 
@@ -174,18 +210,22 @@ Ejemplo:
 GET http://localhost:8081/api/v1/tasks/1
 ```
 
-La respuesta incluye el estado actual, el resultado generado y el mensaje de error, si corresponde.
+La respuesta contiene el identificador, el tipo, el estado, la descripción, el resultado, el mensaje de error y las fechas de creación y actualización.
+
+Si la tarea no existe, la API devuelve `404 Not Found`.
 
 ### Listar tareas
 
-`GET /api/v1/tasks?page=0&size=10`
+**`GET /api/v1/tasks?page=0&size=10`**
 
-Permite consultar las tareas mediante paginación.
+Permite consultar las tareas registradas mediante paginación.
 
 - `page`: número de página, comenzando en `0`.
-- `size`: cantidad de elementos por página, entre `1` y `100`.
+- `size`: cantidad de elementos solicitados, entre `1` y `100`.
 
-Los resultados se ordenan por fecha de creación descendente.
+Las tareas se ordenan por fecha de creación descendente.
+
+La respuesta incluye el contenido de la página y sus metadatos: página actual, tamaño, total de elementos, total de páginas e indicadores de primera y última página.
 
 ## Estados de una tarea
 
@@ -194,25 +234,47 @@ Los resultados se ordenan por fecha de creación descendente.
 | `PENDING` | La tarea está pendiente de procesamiento. |
 | `PROCESSING` | El consumidor está procesando la tarea. |
 | `COMPLETED` | El procesamiento terminó correctamente. |
-| `FAILED` | El procesamiento falló después de los intentos configurados. |
+| `FAILED` | El procesamiento terminó en error después de los intentos configurados. |
 
-El procesamiento ocurre en segundo plano. Por eso, una tarea creada no necesariamente estará completada cuando el cliente reciba la respuesta inicial.
+La creación de una tarea no implica que su procesamiento haya terminado. Para conocer el resultado, consulta su estado mediante el endpoint de consulta.
 
-## Manejo de errores y reintentos
+## Manejo de errores
 
-RabbitMQ utiliza reintentos automáticos cuando el consumidor falla al procesar un mensaje.
+La API utiliza un manejador global para devolver respuestas de error con una estructura uniforme.
 
-La configuración actual contempla hasta tres intentos totales, incluyendo el inicial. Cuando se agotan los intentos, el mensaje se dirige a una Dead Letter Queue (DLQ), donde se gestiona el fallo y se actualiza el estado de la tarea.
+Los errores incluyen los siguientes campos:
+
+| Campo | Descripción |
+|---|---|
+| `status` | Código de estado HTTP |
+| `error` | Descripción del estado HTTP |
+| `message` | Mensaje que explica el problema |
+| `path` | Ruta donde ocurrió el error |
+| `timestamp` | Fecha y hora del error |
+
+Los principales estados HTTP documentados son:
+
+- `201 Created`: tarea creada correctamente.
+- `200 OK`: consulta realizada correctamente.
+- `400 Bad Request`: solicitud inválida o parámetros de paginación incorrectos.
+- `404 Not Found`: no existe una tarea con el identificador solicitado.
+
+## Procesamiento asíncrono y reintentos
+
+RabbitMQ permite desacoplar la recepción de solicitudes del procesamiento de las tareas.
+
+La configuración actual contempla hasta tres intentos totales, incluido el intento inicial. Si el consumidor agota los intentos configurados, el mensaje se envía a una Dead Letter Queue (DLQ), donde se gestiona el fallo y se actualiza el estado de la tarea.
 
 ## Caché con Redis
 
-Las consultas individuales de tareas utilizan Redis para reducir las lecturas repetidas a PostgreSQL.
+Las consultas individuales utilizan Redis para reducir las lecturas repetidas a PostgreSQL.
 
-La caché tiene una duración de cinco minutos. Cuando una tarea cambia de estado, la aplicación invalida su entrada de caché después de confirmar la transacción correspondiente.
+- Las entradas de caché tienen una duración de cinco minutos.
+- La caché se invalida cuando se confirma una actualización del estado de la tarea.
+- Si Redis no está disponible durante una consulta, la aplicación intenta obtener la tarea desde PostgreSQL.
+- PostgreSQL continúa siendo la fuente persistente de los datos.
 
-PostgreSQL continúa siendo la fuente persistente de los datos.
-
-## Pruebas
+## Pruebas automatizadas
 
 Ejecutar todas las pruebas:
 
@@ -220,7 +282,7 @@ Ejecutar todas las pruebas:
 .\mvnw.cmd test
 ```
 
-Ejecutar las pruebas de integración del flujo asíncrono:
+Ejecutar las pruebas del flujo de integración asíncrono:
 
 ```powershell
 .\mvnw.cmd -Dtest=TaskFlowIntegrationIT test
@@ -232,18 +294,20 @@ Ejecutar las pruebas del consumidor:
 .\mvnw.cmd -Dtest=TaskMessageConsumerTest test
 ```
 
-Las pruebas de integración requieren que los servicios externos utilizados por ellas estén disponibles y correctamente configurados.
+Las pruebas que requieren servicios externos necesitan que esos servicios estén disponibles y correctamente configurados.
 
 ## Detener los servicios
 
-Para detener los contenedores:
+Para detener y eliminar los contenedores:
 
-```bash
+```powershell
 docker compose down
 ```
 
-Este comando detiene y elimina los contenedores del proyecto, pero normalmente conserva los datos almacenados en volúmenes nombrados. Para eliminar también esos volúmenes, revisa primero la configuración de Docker Compose y utiliza `docker compose down -v` solo si realmente deseas borrar los datos locales.
+Los volúmenes nombrados normalmente conservan los datos. Si deseas eliminar también los datos locales persistidos, puedes utilizar `docker compose down -v`, pero ten en cuenta que esta operación puede borrar la información de las bases de datos del entorno de desarrollo.
 
 ## Objetivo del proyecto
 
-Este proyecto busca demostrar conocimientos prácticos de desarrollo backend con Java y Spring Boot, integración de mensajería asíncrona, persistencia relacional, caché, gestión de fallos y pruebas automatizadas.
+Este proyecto forma parte de mi portafolio de desarrollo backend y busca demostrar conocimientos prácticos en Java, Spring Boot, APIs REST, persistencia relacional, mensajería asíncrona, caché, manejo de errores y pruebas automatizadas.
+
+El objetivo es construir una API organizada y mantenible que permita procesar tareas en segundo plano y consultar sus resultados de forma fiable.
